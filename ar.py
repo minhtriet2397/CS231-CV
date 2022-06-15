@@ -43,6 +43,11 @@ step=255
 texture_color = np.load('data/3d_objects/fox/fox_texture_{}.npz'.format(cmap))['texture_color']
 
 s = np.linspace(2,6,step)
+d = np.linspace(0,150,10)
+p = np.linspace(0,3,step)
+# p = {0:0,50:1/6,100:1/3,150:1/2, 200:1, 255:2/3}
+# keys = p.keys()
+# fix_p = 0
 
 # Camera setup
 print("trying to access the webcam")
@@ -58,6 +63,9 @@ w_canvas = w + w2
 
 i=0
 flag = 0
+flag1 = 0
+j=0
+t = 0
 while rval:
     rval, frame = vc.read() #fetch frame from webcam
     key = cv2.waitKey(20) 
@@ -83,7 +91,15 @@ while rval:
     obj = three_d_object('data/3d_objects/fox/low-poly-fox-by-pixelmannen.obj', final_image)
     
     # availability: frame, marker, transformation, obj
-    augmented = np.flip(augment(frame, obj, transformation, marker), axis = 1)
+    augmented = np.flip(augment(frame, obj, transformation, marker, 3, d[j], p[t]), axis = 1)
+    if(flag1==0):
+        j+=1
+        if(j>=10):
+            flag1=1
+    if(flag1==1):
+        j-=1
+        if(j<=0):
+            flag1=0
     canvas[:h2 , w: , :] = augmented
     cv2.imshow("webcam", canvas)
 
@@ -95,4 +111,8 @@ while rval:
         i-=1
         if(i<=0):
             flag=0
+    t+=1
+    if(i==254 or i==0):
+        t=0
+        t=0
 

@@ -33,6 +33,8 @@ from matplotlib import cm
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 import matplotlib.colors as mcolors
 import tqdm
+from numpy import cross, eye, dot
+from scipy.linalg import expm, norm
 
 def change_texture_color(texture,cmap,step):
     print('Set up texture')
@@ -42,7 +44,7 @@ def change_texture_color(texture,cmap,step):
     
     s1 = texture.shape[1]
     s2 = texture.shape[0]
-    mask = cv2.inRange(texture, np.array([41, 135, 219]), np.array([41, 135, 219]))
+    mask = cv2.inRange(texture, np.array([41, 135, 219]), np.array([41, 135, 219]))# orginal color
     masked_image = np.copy(texture)
     masked_image[mask != 0] = [0, 0, 0]
 
@@ -53,8 +55,12 @@ def change_texture_color(texture,cmap,step):
     
     np.savez_compressed('data/3d_objects/fox/fox_texture_'+cmap,texture_color = bg_c)
 
+def M(axis, theta):
+    return expm(cross(eye(3), axis/norm(axis)*theta))
 
-def augment(img, obj, projection, template, scale = 4):
+
+
+def augment(img, obj, projection, template, scale = 4, d = 0, p = 0):
     # takes the captureed image, object to augment, and transformation matrix  
     #adjust scale to make the object smaller or bigger, 4 works for the fox
 
@@ -68,12 +74,54 @@ def augment(img, obj, projection, template, scale = 4):
     cv2.fillConvexPoly(img, imgpts, (0,0,0))
 
     #projecting the faces to pixel coords and then drawing
+    p = p*2*np.pi
+    
     for face in obj.faces:
         #a face is a list [face_vertices, face_tex_coords, face_col]
         face_vertices = face[0]
         points = np.array([vertices[vertex - 1] for vertex in face_vertices]) #-1 because of the shifted numbering
         points = scale*points
-        points = np.array([[p[2] + w/2, p[0] + h/2, p[1]] for p in points]) #shifted to centre 
+        
+        # adjust heigth
+        tmp = np.zeros_like(points)
+        tmp[:,1] = d
+        tmp[:,0] = 200
+        points = points+tmp
+        
+#         tmp = np.zeros_like(points)
+#         tmp[:,0] = 200
+#         points+=tmp
+        
+        #0:x(right)
+        #1:z
+        #2:y (forward)
+        
+        #rotate
+#         x = points[:,0]
+#         y = points[:,2] 
+#         z = points[:,1]
+#                 
+#                 
+#         x = x*np.cos(p) - y*np.sin(p);
+#         y = x*np.sin(p) + y*np.cos(p);
+#         z = z
+# 
+#         points[:,0] = x
+#         points[:,1] = z
+#         points[:,2] = y
+
+        #p = p*np.pi
+        
+        for i in range(3):
+            p_n = points[i]
+            x = p_n[0]
+            y = p_n[2]
+            z = p_n[1]
+            
+            points[i,0] = x*np.cos(p)-y*np.sin(p)+5
+            points[i,2] = x*np.sin(p)+y*np.cos(p)+5
+            
+        points = np.array([[p[2] + w/2, p[0] + h/2, p[1]] for p in points]) #shifted to centre
         dst = cv2.perspectiveTransform(points.reshape(-1, 1, 3), projection)#transforming to pixel coords
         imgpts = np.int32(dst)
         cv2.fillConvexPoly(img, imgpts, face[-1])
